@@ -1,104 +1,95 @@
-// Copyright 2018 The Flutter team. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
 import 'package:flutter/material.dart';
-import 'package:english_words/english_words.dart';
+import 'package:flutter/physics.dart';
 
-void main() => runApp(MyApp());
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Startup Name Generator',
-      theme: ThemeData(
-        primaryColor: Colors.greenAccent,
-      ),
-      home: RandomWords(),
-    );
-  }
+main(){
+  runApp(MaterialApp(home: PhysicsCardDragDemo()));
 }
 
-class RandomWords extends StatefulWidget {
-  @override
-  RandomWordsState createState() => RandomWordsState();
-}
-
-class RandomWordsState extends State<RandomWords> {
-  final _suggestions = <WordPair>[];
-  final Set<WordPair> _saved = Set<WordPair>();
-  final _biggerFont = const TextStyle(fontSize: 18.0);
+class PhysicsCardDragDemo extends StatelessWidget{
   @override
   Widget build(BuildContext context) {
+    // TODO: implement build
     return Scaffold(
       appBar: AppBar(
-        title: Text("Startup Name Generator"),
-        actions: <Widget>[
-          IconButton(
-            icon: Icon(Icons.list),
-            onPressed: _pushSaved,
-          )
-        ],
+        title: Text("PhysicsWodgetDemo"),
       ),
-      body: _buildSuggestions(),
+      body: DraggableCard(
+        child: FlutterLogo(
+          size: 128,
+        )
+      ),
     );
   }
-
-  void _pushSaved() {
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (BuildContext context) {
-      final Iterable<ListTile> tiles = _saved.map((WordPair pair) {
-        return ListTile(
-          title: Text(
-            pair.asPascalCase,
-            style: _biggerFont,
-          ),
-        );
+}
+class DraggableCard extends StatefulWidget {
+  final Widget child;
+  DraggableCard({this.child});
+  @override
+  _DraggableCardState createState() => _DraggableCardState();
+  }
+class _DraggableCardState extends State<DraggableCard> with SingleTickerProviderStateMixin{
+  AnimationController _controller;
+  Alignment _dragAlignment = Alignment.center;
+  Animation<Alignment> _animation;
+  void _runAnimation(Offset pixelsPerSecond,Size size){
+    _animation = _controller.drive(AlignmentTween(
+      begin: _dragAlignment,
+      end: Alignment.center,
+    ));
+    final unitsPerSecondX = pixelsPerSecond.dx / size.width;
+    final unitsPerSecondY = pixelsPerSecond.dy / size.height;
+    final unitsPerSecond = Offset(unitsPerSecondX, unitsPerSecondY);
+    final unitVelocity = unitsPerSecond.distance;
+    const spring = SpringDescription(
+      mass: 30,
+      stiffness: 1,
+      damping: 1,
+    );
+    final simulation = SpringSimulation(spring, 0, 1, -unitVelocity);
+    _controller.animateWith(simulation);
+  }
+  @override
+  void initState(){
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: Duration(seconds: 1));
+    _controller.addListener((){
+      setState(() {
+        _dragAlignment = _animation.value;
       });
-      final List<Widget> divided =
-          ListTile.divideTiles(context: context, tiles: tiles).toList();
-      return Scaffold(
-        appBar: AppBar(
-          title: Text("Saved Suggestions"),
-        ),
-        body: ListView(
-          children: divided,
-        ),
-      );
-    }));
+    });
   }
-
-  Widget _buildSuggestions() {
-    return ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemBuilder: (context, i) {
-          if (i.isOdd) return Divider();
-          final index = i ~/ 2;
-          if (index >= _suggestions.length) {
-            _suggestions.addAll(generateWordPairs().take(10));
-          }
-          return _buildRow(_suggestions[index]);
-        });
+  @override
+  void dispose(){
+    super.dispose();
   }
-
-  Widget _buildRow(WordPair pair) {
-    final bool alreadySaved = _saved.contains(pair);
-    return ListTile(
-      title: Text(pair.asPascalCase, style: _biggerFont),
-      trailing: Icon(
-        alreadySaved ? Icons.favorite : Icons.favorite_border,
-        color: alreadySaved ? Colors.red : null,
-      ),
-      onTap: () {
+  @override
+  Widget build(BuildContext context) {
+    var size = MediaQuery.of(context).size;
+    return GestureDetector(
+      onPanDown: (details){
+        _controller.stop();
+      },
+      onPanUpdate: (details){
         setState(() {
-          if (alreadySaved) {
-            _saved.remove(pair);
-          } else {
-            _saved.add(pair);
-          }
+          _dragAlignment+=Alignment(
+            details.delta.dx/size.width/2,
+            details.delta.dy/size.height/2,
+          );
         });
       },
+      onPanEnd: (details) {
+        _runAnimation(details.velocity.pixelsPerSecond, size);
+      },
+        child: Align(
+          alignment: _dragAlignment,
+          child: Card(
+            child: widget.child,
+          ),
+        ),
     );
+
+
   }
+
+
 }
